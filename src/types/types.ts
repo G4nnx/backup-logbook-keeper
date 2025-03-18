@@ -1,6 +1,7 @@
 
 export interface BackupRecord {
-  id: string;
+  id?: string;
+  _id?: string; // MongoDB ID
   date: string; // ISO string
   month: string;
   time: string;

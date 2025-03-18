@@ -12,6 +12,8 @@ interface LogbookEntryProps {
 }
 
 const LogbookEntry: React.FC<LogbookEntryProps> = ({ record, onEdit, onDelete }) => {
+  const recordId = record.id || record._id || '';
+  
   return (
     <tr className="border-b hover:bg-gray-50">
       <td className="px-4 py-3">{format(new Date(record.date), "MMMM")}</td>
@@ -20,10 +22,10 @@ const LogbookEntry: React.FC<LogbookEntryProps> = ({ record, onEdit, onDelete })
       <td className="px-4 py-3">{record.backupNumber}</td>
       <td className="px-4 py-3">{record.performer}</td>
       <td className="px-4 py-3 flex justify-end space-x-2">
-        <Button variant="ghost" size="icon" onClick={() => onEdit(record.id)}>
+        <Button variant="ghost" size="icon" onClick={() => onEdit(recordId)}>
           <Pencil className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={() => onDelete(record.id)}>
+        <Button variant="ghost" size="icon" onClick={() => onDelete(recordId)}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </td>

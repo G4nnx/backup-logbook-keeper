@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { fetchBackupRecords, addBackupRecord, updateBackupRecord, deleteBackupRecord } from "@/api/backupApi";
 
 const Index = () => {
   const [records, setRecords] = useState<BackupRecord[]>([]);
@@ -25,66 +26,106 @@ const Index = () => {
     recordId: null,
   });
   const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Load data from localStorage on component mount
+  // Load data from MongoDB on component mount
   useEffect(() => {
-    const savedRecords = localStorage.getItem("backupRecords");
-    if (savedRecords) {
-      setRecords(JSON.parse(savedRecords));
-    }
-  }, []);
-
-  // Save data to localStorage whenever records change
-  useEffect(() => {
-    localStorage.setItem("backupRecords", JSON.stringify(records));
-  }, [records]);
-
-  const handleAddRecord = (data: Omit<BackupRecord, "id" | "month">) => {
-    const newRecord = {
-      id: editingRecord ? editingRecord.id : Date.now().toString(),
-      month: new Date(data.date).toLocaleString('id-ID', { month: 'long' }),
-      ...data,
+    const loadBackupRecords = async () => {
+      try {
+        setIsLoading(true);
+        const data = await fetchBackupRecords();
+        // Map MongoDB _id to id for compatibility
+        const formattedData = data.map(record => ({
+          ...record,
+          id: record._id
+        }));
+        setRecords(formattedData);
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Gagal mengambil data dari server",
+        });
+        console.error("Failed to fetch records:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
+    
+    loadBackupRecords();
+  }, [toast]);
 
-    if (editingRecord) {
-      // Update existing record
-      setRecords(records.map(record => 
-        record.id === editingRecord.id ? newRecord : record
-      ));
+  const handleAddRecord = async (data: Omit<BackupRecord, "id" | "month">) => {
+    try {
+      setIsLoading(true);
+      if (editingRecord) {
+        // Update existing record
+        const updatedRecord = await updateBackupRecord(editingRecord._id || editingRecord.id || '', data);
+        setRecords(records.map(record => 
+          record._id === updatedRecord._id || record.id === updatedRecord._id ? {
+            ...updatedRecord,
+            id: updatedRecord._id
+          } : record
+        ));
+        toast({
+          title: "Berhasil",
+          description: "Data backup berhasil diperbarui",
+        });
+      } else {
+        // Add new record
+        const newRecord = await addBackupRecord(data);
+        setRecords([...records, {
+          ...newRecord,
+          id: newRecord._id
+        }]);
+        toast({
+          title: "Berhasil",
+          description: "Data backup berhasil ditambahkan",
+        });
+      }
+      setEditingRecord(null);
+      setShowForm(false);
+    } catch (error) {
       toast({
-        title: "Berhasil",
-        description: "Data backup berhasil diperbarui",
+        title: "Error",
+        description: "Gagal menyimpan data",
+        variant: "destructive",
       });
-    } else {
-      // Add new record
-      setRecords([...records, newRecord]);
-      toast({
-        title: "Berhasil",
-        description: "Data backup berhasil ditambahkan",
-      });
+      console.error("Failed to save record:", error);
+    } finally {
+      setIsLoading(false);
     }
-
-    setEditingRecord(null);
-    setShowForm(false);
   };
 
   const handleEditRecord = (id: string) => {
-    const record = records.find(r => r.id === id);
+    const record = records.find(r => r.id === id || r._id === id);
     if (record) {
       setEditingRecord(record);
       setShowForm(true);
     }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteDialog.recordId) {
-      setRecords(records.filter(r => r.id !== deleteDialog.recordId));
-      toast({
-        title: "Berhasil",
-        description: "Data backup berhasil dihapus",
-      });
-      setDeleteDialog({ open: false, recordId: null });
+      try {
+        setIsLoading(true);
+        await deleteBackupRecord(deleteDialog.recordId);
+        setRecords(records.filter(r => r.id !== deleteDialog.recordId && r._id !== deleteDialog.recordId));
+        toast({
+          title: "Berhasil",
+          description: "Data backup berhasil dihapus",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Gagal menghapus data",
+          variant: "destructive",
+        });
+        console.error("Failed to delete record:", error);
+      } finally {
+        setIsLoading(false);
+        setDeleteDialog({ open: false, recordId: null });
+      }
     }
   };
 
@@ -128,13 +169,20 @@ const Index = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button onClick={() => {
-                setEditingRecord(null);
-                setShowForm(true);
-              }}>
+              <Button 
+                onClick={() => {
+                  setEditingRecord(null);
+                  setShowForm(true);
+                }}
+                disabled={isLoading}
+              >
                 <Plus className="h-4 w-4 mr-2" /> Tambah Backup
               </Button>
-              <Button variant="outline" onClick={handleExportExcel}>
+              <Button 
+                variant="outline" 
+                onClick={handleExportExcel}
+                disabled={isLoading}
+              >
                 <FileDown className="h-4 w-4 mr-2" /> Export Excel
               </Button>
             </div>
@@ -153,7 +201,11 @@ const Index = () => {
             </div>
           )}
 
-          {filteredRecords.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Memuat data...</p>
+            </div>
+          ) : filteredRecords.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
@@ -169,7 +221,7 @@ const Index = () => {
                 <tbody>
                   {filteredRecords.map((record) => (
                     <LogbookEntry
-                      key={record.id}
+                      key={record.id || record._id}
                       record={record}
                       onEdit={handleEditRecord}
                       onDelete={(id) => setDeleteDialog({ open: true, recordId: id })}
@@ -201,7 +253,7 @@ const Index = () => {
             <Button variant="outline" onClick={() => setDeleteDialog({ open: false, recordId: null })}>
               Batal
             </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
+            <Button variant="destructive" onClick={handleDeleteConfirm} disabled={isLoading}>
               Hapus
             </Button>
           </div>
