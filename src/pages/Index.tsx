@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, FileDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar";
 import LogbookEntry from "@/components/LogbookEntry";
 import LogbookForm from "@/components/LogbookForm";
 import { BackupRecord } from "@/types/types";
+import { exportToExcel } from "@/utils/excelExport";
 import {
   Dialog,
   DialogContent,
@@ -87,6 +88,21 @@ const Index = () => {
     }
   };
 
+  const handleExportExcel = () => {
+    if (filteredRecords.length > 0) {
+      exportToExcel(filteredRecords);
+      toast({
+        title: "Berhasil",
+        description: "Data berhasil diekspor ke Excel",
+      });
+    } else {
+      toast({
+        title: "Peringatan",
+        description: "Tidak ada data untuk diekspor",
+      });
+    }
+  };
+
   const filteredRecords = records.filter(record => 
     record.performer.toLowerCase().includes(searchTerm.toLowerCase()) ||
     record.backupNumber.includes(searchTerm) ||
@@ -117,6 +133,9 @@ const Index = () => {
                 setShowForm(true);
               }}>
                 <Plus className="h-4 w-4 mr-2" /> Tambah Backup
+              </Button>
+              <Button variant="outline" onClick={handleExportExcel}>
+                <FileDown className="h-4 w-4 mr-2" /> Export Excel
               </Button>
             </div>
           </div>

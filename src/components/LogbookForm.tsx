@@ -36,11 +36,19 @@ interface LogbookFormProps {
 }
 
 const LogbookForm: React.FC<LogbookFormProps> = ({ onSubmit, editRecord, onCancel }) => {
+  // Get current time in HH:MM format
+  const getCurrentTime = () => {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       date: new Date(),
-      time: "",
+      time: getCurrentTime(),
       backupNumber: "",
       performer: "",
     },
@@ -53,6 +61,14 @@ const LogbookForm: React.FC<LogbookFormProps> = ({ onSubmit, editRecord, onCance
         time: editRecord.time,
         backupNumber: editRecord.backupNumber,
         performer: editRecord.performer,
+      });
+    } else {
+      // For new records, set current time
+      form.reset({
+        date: new Date(),
+        time: getCurrentTime(),
+        backupNumber: "",
+        performer: "",
       });
     }
   }, [editRecord, form]);
@@ -120,7 +136,7 @@ const LogbookForm: React.FC<LogbookFormProps> = ({ onSubmit, editRecord, onCance
               <FormItem>
                 <FormLabel>Jam Backup</FormLabel>
                 <FormControl>
-                  <Input placeholder="Contoh: 14:30" {...field} />
+                  <Input type="time" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
